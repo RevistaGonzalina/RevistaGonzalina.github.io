@@ -1,6 +1,8 @@
 /* -------------------------------------------------------- */
 /* VARIABLES */
 /* -------------------------------------------------------- */
+/* PALETA: blanco, azul y amarillo.
+   Para cambiar un color de toda la revista, cambia su valor aquí. */
 :root {
     --blog-size: 800px;
     --sidebar-size: 300px;
@@ -9,83 +11,96 @@
 
     --image-sidebar: url(https://github.com/RevistaGonzalina/RevistaGonzalina/blob/main/img/FGS.jpg?raw=true);
     --body-font: "Nunito";
-    --font-color: #1f1c1c;
+    --font-color: #1b2a41;
 
     --border-radius: 0px;
     --padding: 13px;
 
-    --focus-color: #ff00a4;
+    --focus-color: #0b57d0;
     --marquee-duration: 30s;
 
-    --sidebar-color: pink;
-    --sidebar-text: black;
-    --sidebar-shadow: rgba(165, 22, 81, 0.37);
+    --sidebar-color: #cfe4fa;
+    --sidebar-text: #14243b;
+    --sidebar-shadow: rgba(40, 100, 180, 0.35);
     --sidebar-content-width: 86%;
-    --sidebar-divider: #b93e54;
+    --sidebar-divider: #3b82c4;
 
     --header-font: "joyful";
-    --header-color: #810f32;
+    --header-color: #1c4f94;
 
-    --bold: #6c0d31;
-    --italics: #c31773;
-    --blockquote: #ffeeee;
-    --accent: #db8eae;
+    --bold: #17407a;
+    --italics: #8a5a00;
+    --blockquote: #fff4c2;
+    --accent: #f2c230;
     --image-deco-border: white;
 
     --quote-color: #ffffff;
 
     --background: #ffffff;
-    --background-image: url(../img/dot_pattern_01.png);
+    --background-image: url(../img/dot_pattern_azul.png);
 
-    --links: #811313;
-    --links-hover: #000000;
+    --links: #1d5fb0;
+    --links-hover: #0b2a52;
 
-    --borders: #e4a2ae;
+    --borders: #8db8e8;
     --body-bg: #ffffff;
-    --body-shadows: rgba(185, 20, 102, 0.41);
+    --body-shadows: rgba(40, 100, 180, 0.35);
 
     --nav-links: white;
-    --nav-text: black;
-    --nav-links-hover: #620d1d;
+    --nav-text: #14243b;
+    --nav-links-hover: #1d5fb0;
     --nav-text-hover: #ffffff;
+    --nav-activo: #ffd54a;
+    --nav-activo-text: #14243b;
 
-    --footer-text: #000000;
-    --footer-link: #891212;
+    --footer-text: #14243b;
+    --footer-link: #1d5fb0;
+
+    /* MARCO DORADO de los recuadros y del panel lateral:
+       --encaje = la imagen, --encaje-recorte = cuánto de la imagen es esquina (arriba derecha abajo izquierda),
+       --encaje-grosor = qué tan ancho se dibuja en los recuadros y --encaje-grosor-lateral en el panel */
+    --encaje: url(../img/bordes/borde-festoneado.png);
+    --encaje-recorte: 8;
+    --encaje-grosor: 12px;
+    --encaje-grosor-lateral: 12px;
 
     @media (prefers-color-scheme: dark) {
         --image-sidebar: url(https://github.com/RevistaGonzalina/RevistaGonzalina/blob/main/img/FGS.jpg?raw=true);
-        --font-color: #ffebeb;
+        --font-color: #e8f1ff;
 
-        --focus-color: #ff00a4;
+        --focus-color: #ffd54a;
 
-        --sidebar-color: #240b10;
-        --sidebar-text: #fff4f4;
-        --sidebar-shadow: rgba(165, 22, 81, 0.37);
-        --sidebar-divider: #ef94a4;
+        --sidebar-color: #0d2240;
+        --sidebar-text: #eaf3ff;
+        --sidebar-shadow: rgba(90, 150, 230, 0.35);
+        --sidebar-divider: #5b9be0;
 
-        --header-color: #f483b2;
-        --bold: #ff82b1;
-        --italics: #ffc7e5;
-        --blockquote: #3b0d22;
-        --accent: #f483b2;
-        --image-deco-border: #35081c;
+        --header-color: #ffd54a;
+        --bold: #ffe28a;
+        --italics: #9fcbff;
+        --blockquote: #14305a;
+        --accent: #f2c230;
+        --image-deco-border: #0a1a33;
 
-        --background: #000000;
-        --background-image: url(../img/dot_pattern_01_dark.png);
+        --background: #07111f;
+        --background-image: url(../img/dot_pattern_azul_dark.png);
 
-        --links: #f29999;
+        --links: #8fc4ff;
         --links-hover: #ffffff;
 
-        --borders: #792444;
-        --body-bg: #1e1313;
+        --borders: #2f5f9e;
+        --body-bg: #0e1d35;
+        --body-shadows: rgba(90, 150, 230, 0.35);
 
-        --nav-links: #611543;
+        --nav-links: #153a6b;
         --nav-text: #ffffff;
-        --nav-links-hover: #ffffff;
-        --nav-text-hover: #470909;
+        --nav-links-hover: #ffd54a;
+        --nav-text-hover: #14243b;
+        --nav-activo: #ffd54a;
+        --nav-activo-text: #14243b;
 
         --footer-text: #ffffff;
-        --footer-link: #e869c1; /* not yet */
+        --footer-link: #8fc4ff;
     }
 }
 
@@ -153,7 +168,7 @@ body {
     margin: 0;
 
     &:focus-visible {
-        outline-color: red !important;
+        outline-color: var(--focus-color) !important;
         outline-offset: -1px !important;
         outline-style: dotted !important;
         outline-width: 2px !important;
@@ -222,12 +237,10 @@ main > section {
     background-color: var(--body-bg);
     padding: var(--padding);
     border-radius: var(--border-radius);
-    border: 1px solid var(--borders);
-    border-bottom: 16px solid var(--borders);
-    /*(c) solielios*/
-    border-width: 12px;
+    /* borde de encaje (se cambia en las variables --encaje de arriba) */
     border-style: solid;
-    border-image: url("https://i.imgur.com/gTFIwdW.png") 11 round;
+    border-width: var(--encaje-grosor);
+    border-image: var(--encaje) var(--encaje-recorte) round;
 }
 
 /* -------------------------------------------------------- */
@@ -262,13 +275,10 @@ main > section {
     gap: var(--content-gap);
     padding: var(--padding);
 
-    /*(c) lovermonth*/
+    /* borde de encaje */
     border-style: solid;
-    border-width: 26px 26px 26px 26px;
-    -moz-border-image: url(https://i.imgur.com/PaK2h0q.gif) 26 26 26 26 round round;
-    -webkit-border-image: url(https://i.imgur.com/PaK2h0q.gif) 26 26 26 26 round round;
-    -o-border-image: url(https://i.imgur.com/PaK2h0q.gif) 26 26 26 26 round round;
-    border-image: url(https://i.imgur.com/PaK2h0q.gif) 26 26 26 26 round round;
+    border-width: var(--encaje-grosor-lateral);
+    border-image: var(--encaje) var(--encaje-recorte) round;
 
     box-shadow:
         var(--sidebar-shadow) 0 2px 20px -1px,
@@ -334,7 +344,7 @@ nav a {
     &:hover {
         background-color: var(--nav-links-hover);
         color: var(--nav-text-hover);
-        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 8px 12px rgba(10, 40, 90, 0.25);
         transform: translateY(-2px);
     }
 }
@@ -877,6 +887,11 @@ footer a {
 /* MOBILE RESPONSIVENESS */
 /* -------------------------------------------------------- */
 @media screen and (max-width: 800px) {
+    :root {
+        --encaje-grosor: 12px;
+        --encaje-grosor-lateral: 12px;
+    }
+
     .container {
         display: flex;
         flex-direction: column;
