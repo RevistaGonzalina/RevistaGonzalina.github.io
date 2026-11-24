@@ -2,7 +2,7 @@
    REVISTA GONZALINA · código común del sitio
    --------------------------------------------------------------------------
    Aquí está TODO lo que hace funcionar el menú, los muros de artículos,
-   el muro de fotos y el panel para publicar.
+   el muro de fotos, los cuestionarios y el panel para publicar.
 
    Para agregar una sección nueva al menú, solo edita la lista "secciones"
    de la CONFIGURACIÓN (más abajo). Los textos de cada sección también se
@@ -23,7 +23,7 @@
         articulosPorPagina: 6,
         fotosPorTanda: 18,
 
-        // Secciones del menú. "tipo" puede ser: "inicio", "articulos", "fotos" o "pagina" (página suelta).
+        // Secciones del menú. "tipo" puede ser: "inicio", "articulos", "fotos", "cuestionarios" o "pagina" (página suelta).
         // Para las de tipo "articulos", "id" es también el nombre de la carpeta
         // dentro de /articulos/ donde viven sus artículos.
         secciones: [
@@ -44,6 +44,10 @@
                 id: "galeria", titulo: "Galería", url: "galeria.html", tipo: "fotos",
                 descripcion: "Un muro de fotos que nunca termina: sigue bajando y descubre más momentos de nuestra comunidad."
             },
+            {
+                id: "cuestionarios", titulo: "Cuestionarios", url: "cuestionarios.html", tipo: "cuestionarios",
+                descripcion: "Pon a prueba lo que sabes. Resuelve cada cuestionario aquí mismo: tus respuestas no se guardan en ningún lado, el resultado es solo para ti."
+            },
             { id: "creditos", titulo: "Créditos", url: "creditos.html", tipo: "pagina" }
         ]
     };
@@ -54,6 +58,7 @@
     var DATOS = window.REVISTA_DATOS || { articulos: [], fotos: [] };
     DATOS.articulos = DATOS.articulos || [];
     DATOS.fotos = DATOS.fotos || [];
+    DATOS.cuestionarios = DATOS.cuestionarios || [];
 
     var MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
         "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -501,12 +506,226 @@
     }
 
     /* ===================================================================
+       MOTOR DE CUESTIONARIOS (se usa en la página y en la vista previa del panel)
+       Nada se guarda: ni en el navegador ni en ningún servidor.
+       =================================================================== */
+    function enlaceCuestionario(q) { return "cuestionarios.html?q=" + encodeURIComponent(q.id); }
+
+    function textoPreguntas(n) { return n + (n === 1 ? " pregunta" : " preguntas"); }
+
+    function crearQuiz(cont, quiz, alSalir) {
+        var preguntas = quiz.preguntas || [];
+        var total = preguntas.length;
+        var indice = 0, elegidas = [];
+
+        function html(t) { return enLinea(esc(t)); }
+
+        function mensajeFinal(pct) {
+            if (pct === 100) return "¡Perfecto! Respondiste todo bien. 🎉";
+            if (pct >= 70) return "¡Muy bien! Sabes bastante del tema.";
+            if (pct >= 40) return "Vas por buen camino. Puedes intentarlo otra vez para mejorar.";
+            return "¡Buen intento! Inténtalo de nuevo, cada vez se aprende más.";
+        }
+
+        function pintarPregunta() {
+            var p = preguntas[indice];
+            var ops = p.ops.map(function (t, i) {
+                return '<label class="quiz-op"><input type="radio" name="quiz-op" value="' + i + '">' +
+                    '<span class="quiz-letra">' + String.fromCharCode(65 + i) + '</span>' +
+                    '<span class="quiz-texto">' + html(t) + '</span><span class="quiz-marca" aria-hidden="true"></span></label>';
+            }).join("");
+            cont.innerHTML =
+                '<div class="quiz">' +
+                '<p class="quiz-progreso">Pregunta ' + (indice + 1) + " de " + total + "</p>" +
+                '<div class="quiz-barra" aria-hidden="true"><span style="width:' + Math.round(indice / total * 100) + '%"></span></div>' +
+                '<fieldset class="quiz-pregunta"><legend tabindex="-1">' + html(p.p) + "</legend>" + ops + "</fieldset>" +
+                '<p class="quiz-feedback" role="status" aria-live="polite"></p>' +
+                '<div class="acciones"><button type="button" class="principal quiz-comprobar" disabled>Comprobar</button>' +
+                '<button type="button" class="principal quiz-siguiente" hidden>' +
+                (indice === total - 1 ? "Ver mi resultado" : "Siguiente pregunta →") + "</button></div></div>";
+
+            var boton = $(".quiz-comprobar", cont), siguiente = $(".quiz-siguiente", cont);
+            var radios = cont.querySelectorAll('input[name="quiz-op"]');
+            for (var i = 0; i < radios.length; i++) {
+                radios[i].addEventListener("change", function () { boton.disabled = false; });
+            }
+            boton.addEventListener("click", function () {
+                var marcada = cont.querySelector('input[name="quiz-op"]:checked');
+                if (!marcada) return;
+                var elegida = parseInt(marcada.value, 10);
+                elegidas[indice] = elegida;
+                var etiquetas = cont.querySelectorAll(".quiz-op");
+                for (var k = 0; k < etiquetas.length; k++) {
+                    radios[k].disabled = true;
+                    if (k === p.c) { etiquetas[k].className += " correcta"; $(".quiz-marca", etiquetas[k]).textContent = "✓ Correcta"; }
+                    else if (k === elegida) { etiquetas[k].className += " incorrecta"; $(".quiz-marca", etiquetas[k]).textContent = "✗ Tu respuesta"; }
+                }
+                var fb = $(".quiz-feedback", cont);
+                fb.className += elegida === p.c ? " bien" : " mal";
+                fb.innerHTML = (elegida === p.c ? "<strong>¡Correcto!</strong>" : "<strong>No es esa.</strong> La respuesta correcta es la " +
+                    String.fromCharCode(65 + p.c) + ".") + (p.exp ? " " + html(p.exp) : "");
+                boton.hidden = true;
+                siguiente.hidden = false;
+                siguiente.focus();
+            });
+            siguiente.addEventListener("click", function () {
+                indice++;
+                if (indice < total) pintarPregunta(); else pintarResultado();
+            });
+            $("legend", cont).focus();
+        }
+
+        function pintarResultado() {
+            var aciertos = 0;
+            preguntas.forEach(function (p, i) { if (elegidas[i] === p.c) aciertos++; });
+            var pct = Math.round(aciertos / total * 100);
+            var repaso = preguntas.map(function (p, i) {
+                var bien = elegidas[i] === p.c;
+                return '<li class="' + (bien ? "bien" : "mal") + '"><strong>' + html(p.p) + "</strong><br>" +
+                    (bien ? "✓ Respondiste: " + html(p.ops[p.c])
+                        : "✗ Respondiste: " + html(p.ops[elegidas[i]]) + "<br>✓ Correcta: " + html(p.ops[p.c])) + "</li>";
+            }).join("");
+            cont.innerHTML =
+                '<div class="quiz quiz-resultado">' +
+                '<p class="quiz-progreso">Resultado</p>' +
+                '<h2 class="quiz-puntaje" tabindex="-1">' + aciertos + " de " + total + " (" + pct + "%)</h2>" +
+                "<p>" + mensajeFinal(pct) + "</p>" +
+                '<div class="quiz-barra" aria-hidden="true"><span style="width:' + pct + '%"></span></div>' +
+                '<details><summary>Ver mis respuestas</summary><ol class="quiz-repaso">' + repaso + "</ol></details>" +
+                '<p class="quiz-privado"><small>Tus respuestas no se guardaron en ningún lado.</small></p>' +
+                '<div class="acciones"><button type="button" class="principal quiz-reintentar">Intentar de nuevo</button>' +
+                (alSalir ? '<button type="button" class="quiz-otros">Ver otros cuestionarios</button>' : "") + "</div></div>";
+            $(".quiz-reintentar", cont).addEventListener("click", function () {
+                indice = 0; elegidas = []; pintarPregunta();
+            });
+            var otros = $(".quiz-otros", cont);
+            if (otros) otros.addEventListener("click", alSalir);
+            $(".quiz-puntaje", cont).focus();
+        }
+
+        if (!total) { cont.innerHTML = "<p>Este cuestionario todavía no tiene preguntas.</p>"; return; }
+        pintarPregunta();
+    }
+
+    function tarjetaCuestionario(q) {
+        var sec = document.createElement("section");
+        var foto = q.imagenMini || q.imagen;
+        sec.className = "entrada" + (foto ? "" : " sin-imagen");
+        var partes = [];
+        if (q.fecha) partes.push(esc(formatoFecha(q.fecha)));
+        if (q.autor) partes.push("Por " + esc(q.autor));
+        partes.push(textoPreguntas(q.preguntas.length));
+        sec.innerHTML =
+            (foto ? '<a class="entrada-img" href="' + enlaceCuestionario(q) + '" tabindex="-1" aria-hidden="true">' +
+                '<img src="' + urlImagen(foto) + '" alt="" loading="lazy"></a>' : "") +
+            '<div class="entrada-texto">' +
+            '<h2 class="entrada-titulo"><a href="' + enlaceCuestionario(q) + '">' + esc(q.titulo) + "</a></h2>" +
+            '<p class="entrada-meta">' + partes.join(" · ") + "</p>" +
+            (q.resumen ? "<p>" + esc(q.resumen) + "</p>" : "") +
+            '<p><a class="leer-mas" href="' + enlaceCuestionario(q) + '">Resolver cuestionario →</a></p>' +
+            "</div>";
+        return sec;
+    }
+
+    /* ===================================================================
+       PÁGINA: CUESTIONARIOS
+       =================================================================== */
+    function iniciarCuestionarios() {
+        var sec = buscarSeccion("cuestionarios") || { titulo: "Cuestionarios", descripcion: "" };
+        pintarMenu("cuestionarios");
+        $("#sec-titulo").textContent = sec.titulo;
+        $("#sec-desc").textContent = sec.descripcion || "";
+
+        var cabecera = $("#q-cabecera"), lista = $("#q-lista"), vista = $("#q-vista"), juego = $("#q-juego");
+        var todos = ordenarPorFecha(DATOS.cuestionarios);
+
+        function mostrarLista() {
+            vista.hidden = true; cabecera.hidden = false; lista.hidden = false;
+            document.title = sec.titulo + " · Revista Gonzalina";
+            lista.innerHTML = "";
+            if (!todos.length) {
+                lista.innerHTML = '<section class="vacio"><p>Todavía no hay cuestionarios. ¡Muy pronto habrá novedades!</p></section>';
+                return;
+            }
+            todos.forEach(function (q) { lista.appendChild(tarjetaCuestionario(q)); });
+        }
+
+        function abrir(q) {
+            cabecera.hidden = true; lista.hidden = true; vista.hidden = false;
+            document.title = q.titulo + " · Revista Gonzalina";
+            var meta = [];
+            if (q.fecha) meta.push(esc(formatoFecha(q.fecha)));
+            if (q.autor) meta.push("Por " + esc(q.autor));
+            meta.push(textoPreguntas(q.preguntas.length));
+            $("#q-titulo").textContent = q.titulo;
+            $("#q-meta").innerHTML = meta.join(" · ");
+            $("#q-intro").innerHTML = q.intro ? markdown(q.intro) : "";
+            crearQuiz(juego, q, function () { cerrar(true); });
+            window.scrollTo(0, 0);
+            var cont = document.querySelector(".container");
+            if (cont && cont.scrollTo) cont.scrollTo(0, 0);
+        }
+
+        function cerrar(empujar) {
+            if (empujar) { try { history.pushState({}, "", "cuestionarios.html"); } catch (e) { /* sin historial */ } }
+            mostrarLista();
+        }
+
+        function buscarPorId(id) {
+            for (var i = 0; i < todos.length; i++) if (todos[i].id === id) return todos[i];
+            return null;
+        }
+
+        lista.addEventListener("click", function (e) {
+            var a = e.target.closest ? e.target.closest("a") : null;
+            if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+            var m = /[?&]q=([^&]+)/.exec(a.getAttribute("href") || "");
+            var q = m && buscarPorId(decodeURIComponent(m[1]));
+            if (!q) return;
+            e.preventDefault();
+            try { history.pushState({ q: q.id }, "", enlaceCuestionario(q)); } catch (err) { /* sin historial */ }
+            abrir(q);
+        });
+        $("#q-volver").addEventListener("click", function (e) { e.preventDefault(); cerrar(true); });
+        window.addEventListener("popstate", function () {
+            var id = new URLSearchParams(location.search).get("q");
+            var q = id && buscarPorId(id);
+            if (q) abrir(q); else mostrarLista();
+        });
+
+        var pedido = new URLSearchParams(location.search).get("q");
+        var q0 = pedido && buscarPorId(pedido);
+        if (q0) abrir(q0);
+        else {
+            mostrarLista();
+            if (pedido) {
+                var aviso = document.createElement("section");
+                aviso.className = "vacio";
+                aviso.innerHTML = "<p>No encontramos ese cuestionario. Mira los que hay disponibles:</p>";
+                lista.insertBefore(aviso, lista.firstChild);
+            }
+        }
+    }
+
+    /* ===================================================================
        PÁGINA DE INICIO: "lo más nuevo"
        =================================================================== */
     function iniciarInicio() {
         pintarMenu("inicio");
         var arts = document.getElementById("ultimos-articulos");
         var fotos = document.getElementById("ultimas-fotos");
+        var quizzes = document.getElementById("ultimos-cuestionarios");
+
+        if (quizzes) {
+            var nuevos = ordenarPorFecha(DATOS.cuestionarios).slice(0, 3);
+            quizzes.innerHTML = nuevos.length
+                ? nuevos.map(function (q) {
+                    return '<div class="ultimo"><h3><a href="' + enlaceCuestionario(q) + '">' + esc(q.titulo) + "</a></h3>" +
+                        '<p class="entrada-meta">' + (q.fecha ? esc(formatoFecha(q.fecha)) + " · " : "") + textoPreguntas(q.preguntas.length) + "</p>" +
+                        (q.resumen ? "<p>" + esc(q.resumen) + "</p>" : "") + "</div>";
+                }).join("")
+                : "<p>Pronto publicaremos aquí los primeros cuestionarios.</p>";
+        }
 
         if (arts) {
             var recientes = ordenarPorFecha(DATOS.articulos).slice(0, 3);
@@ -659,6 +878,159 @@
             campos[k].addEventListener("change", vistaPrevia);
         });
         vistaPrevia();
+        iniciarConstructorQuiz(gh);
+    }
+
+    /* ---------- panel: constructor de cuestionarios ---------- */
+    function iniciarConstructorQuiz(gh) {
+        var form = $("#qz-form");
+        if (!form) return;
+        var campos = {
+            titulo: $("#qz-titulo"), autor: $("#qz-autor"), fecha: $("#qz-fecha"),
+            resumen: $("#qz-resumen"), imagen: $("#qz-imagen"), intro: $("#qz-intro")
+        };
+        var lista = $("#qz-preguntas"), aviso = $("#qz-aviso");
+        var contador = 0;
+        campos.fecha.value = hoyISO();
+
+        function mostrarAviso(t) { aviso.textContent = t; aviso.hidden = !t; }
+
+        function numerar() {
+            var bloques = lista.querySelectorAll(".qz-preg");
+            for (var i = 0; i < bloques.length; i++) {
+                $(".qz-num", bloques[i]).textContent = "Pregunta " + (i + 1);
+                $(".qz-quitar", bloques[i]).hidden = bloques.length <= 1;
+            }
+        }
+
+        function agregarPregunta() {
+            contador++;
+            var n = contador, b = document.createElement("fieldset");
+            b.className = "qz-preg";
+            var ops = "";
+            for (var i = 0; i < 4; i++) {
+                ops += '<div class="qz-op"><input type="radio" name="qz-c' + n + '" value="' + i + '" aria-label="Marcar la opción ' +
+                    String.fromCharCode(65 + i) + ' como correcta"><input type="text" class="qz-opt" maxlength="160" placeholder="Opción ' +
+                    String.fromCharCode(65 + i) + (i < 2 ? "" : " (opcional)") + '"></div>';
+            }
+            b.innerHTML =
+                '<legend class="qz-num"></legend>' +
+                '<label class="campo"><span>Pregunta</span><input type="text" class="qz-p" maxlength="200"></label>' +
+                '<div class="campo"><span>Opciones <small>(marca con el círculo cuál es la correcta)</small></span>' + ops + "</div>" +
+                '<label class="campo"><span>Explicación (opcional)</span><input type="text" class="qz-exp" maxlength="300">' +
+                "<small>Se muestra después de responder.</small></label>" +
+                '<button type="button" class="qz-quitar">Quitar esta pregunta</button>';
+            $(".qz-quitar", b).addEventListener("click", function () {
+                lista.removeChild(b); numerar(); mostrarAviso("");
+            });
+            lista.appendChild(b);
+            numerar();
+        }
+
+        function leer() {
+            var errores = [], preguntas = [];
+            var bloques = lista.querySelectorAll(".qz-preg");
+            for (var i = 0; i < bloques.length; i++) {
+                var b = bloques[i];
+                var p = unaL($(".qz-p", b).value);
+                var entradas = b.querySelectorAll(".qz-opt"), radios = b.querySelectorAll('input[type="radio"]');
+                var ops = [], correcta = -1, marcada = -1;
+                for (var k = 0; k < entradas.length; k++) {
+                    if (radios[k].checked) marcada = k;
+                    var t = unaL(entradas[k].value);
+                    if (t) { if (k === marcada) correcta = ops.length; ops.push(t); }
+                }
+                var todoVacio = !p && !ops.length;
+                if (todoVacio) continue;
+                var nombre = "Pregunta " + (i + 1) + ": ";
+                if (!p) errores.push(nombre + "escribe la pregunta.");
+                else if (ops.length < 2) errores.push(nombre + "escribe al menos 2 opciones.");
+                else if (marcada < 0) errores.push(nombre + "marca cuál es la respuesta correcta.");
+                else if (!unaL(entradas[marcada].value)) errores.push(nombre + "la opción marcada como correcta está vacía.");
+                else preguntas.push({ p: p, ops: ops, c: correcta, exp: unaL($(".qz-exp", b).value) });
+            }
+            return { errores: errores, preguntas: preguntas };
+        }
+
+        function unaL(v) { return String(v || "").replace(/\s*\n\s*/g, " ").trim(); }
+
+        function objeto(preguntas) {
+            return {
+                titulo: unaL(campos.titulo.value) || "Cuestionario", autor: unaL(campos.autor.value),
+                fecha: campos.fecha.value, intro: campos.intro.value.trim(), preguntas: preguntas
+            };
+        }
+
+        function validar() {
+            if (!unaL(campos.titulo.value)) { mostrarAviso("Escribe primero el título del cuestionario."); campos.titulo.focus(); return null; }
+            var r = leer();
+            if (r.errores.length) { mostrarAviso(r.errores.join(" ")); return null; }
+            if (!r.preguntas.length) { mostrarAviso("Agrega al menos una pregunta completa."); return null; }
+            mostrarAviso("");
+            return r.preguntas;
+        }
+
+        function construir(preguntas) {
+            var cab = ["titulo: " + unaL(campos.titulo.value)];
+            if (unaL(campos.autor.value)) cab.push("autor: " + unaL(campos.autor.value));
+            if (unaL(campos.fecha.value)) cab.push("fecha: " + unaL(campos.fecha.value));
+            if (unaL(campos.resumen.value)) cab.push("resumen: " + unaL(campos.resumen.value));
+            if (unaL(campos.imagen.value)) cab.push("imagen: " + unaL(campos.imagen.value));
+            var texto = cab.join("\n") + "\n\n";
+            if (campos.intro.value.trim()) texto += campos.intro.value.trim() + "\n\n";
+            texto += preguntas.map(function (q) {
+                return "## " + q.p + "\n" + q.ops.map(function (o, i) { return "- " + o + (i === q.c ? " *" : ""); }).join("\n") +
+                    (q.exp ? "\n> " + q.exp : "");
+            }).join("\n\n") + "\n";
+            var fecha = /^\d{4}-\d{2}-\d{2}$/.test(campos.fecha.value) ? campos.fecha.value : hoyISO();
+            var nombre = fecha + "-" + hacerSlug(campos.titulo.value) + ".md";
+            return { ruta: "articulos/cuestionarios/" + nombre, nombre: nombre, contenido: texto };
+        }
+
+        $("#qz-agregar").addEventListener("click", function () {
+            agregarPregunta();
+            var ult = lista.lastElementChild; if (ult) $(".qz-p", ult).focus();
+        });
+
+        $("#qz-probar").addEventListener("click", function () {
+            var pr = validar();
+            if (!pr) return;
+            var cont = $("#qz-previa");
+            cont.hidden = false;
+            crearQuiz(cont, objeto(pr), null);
+            cont.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+
+        $("#qz-publicar").addEventListener("click", function () {
+            var pr = validar();
+            if (!pr) return;
+            var r = construir(pr);
+            var base = gh + "/new/" + CONFIG.rama + "?filename=" + encodeURIComponent(r.ruta);
+            var url = base + "&value=" + encodeURIComponent(r.contenido);
+            if (url.length > 7000) {
+                copiarTexto(r.contenido).then(function () {
+                    mostrarAviso("Tu cuestionario es largo, así que lo copiamos al portapapeles. En la página de GitHub que se abre, haz clic en el cuadro grande y pega con Ctrl+V (o ⌘+V). Luego pulsa «Commit changes».");
+                }, function () {
+                    mostrarAviso("Tu cuestionario es largo y no pudimos copiarlo solo. Pulsa «Copiar texto» aquí y pégalo en el cuadro grande de GitHub.");
+                });
+                window.open(base, "_blank", "noopener");
+            } else {
+                mostrarAviso("Se abrió GitHub con tu cuestionario listo. Solo falta pulsar el botón verde «Commit changes…» y confirmar. En un minuto aparecerá en la revista.");
+                window.open(url, "_blank", "noopener");
+            }
+        });
+
+        $("#qz-copiar").addEventListener("click", function () {
+            var pr = validar();
+            if (!pr) return;
+            copiarTexto(construir(pr).contenido).then(
+                function () { mostrarAviso("Texto copiado. Guárdalo en un archivo .md dentro de la carpeta articulos/cuestionarios/"); },
+                function () { mostrarAviso("No pude copiar automáticamente."); }
+            );
+        });
+
+        agregarPregunta();
+        agregarPregunta();
     }
 
     /* ===================================================================
@@ -670,6 +1042,7 @@
         if (pagina === "inicio") iniciarInicio();
         else if (pagina === "seccion") iniciarSeccion();
         else if (pagina === "galeria") iniciarGaleria();
+        else if (pagina === "cuestionarios") iniciarCuestionarios();
         else if (pagina === "articulo") iniciarArticulo();
         else if (pagina === "publicar") iniciarPublicar();
         else if (pagina === "creditos") pintarMenu("creditos");

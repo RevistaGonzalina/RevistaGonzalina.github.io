@@ -2,7 +2,7 @@
 """
 Robot de la Revista Gonzalina.
 
-Lee las carpetas `articulos/` y `fotos/` y genera:
+Lee las carpetas `articulos/` (incluida `articulos/cuestionarios/`) y `fotos/` y genera:
   - data/contenido.js   -> lista de artículos y fotos que usa la página web
   - miniaturas/...      -> versiones livianas de las fotos (para que el muro cargue rápido)
 
@@ -23,6 +23,7 @@ CARPETA_ARTICULOS = RAIZ / "articulos"
 CARPETA_FOTOS = RAIZ / "fotos"
 CARPETA_MINIS = RAIZ / "miniaturas"
 SALIDA = RAIZ / "data" / "contenido.js"
+SECCION_CUESTIONARIOS = "cuestionarios"  # carpeta articulos/cuestionarios/ = quizzes
 
 EXT_FOTOS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"}
 CLAVES = {"titulo", "autor", "fecha", "resumen", "imagen"}
@@ -178,6 +179,8 @@ def leer_articulos(fechas):
             print(f"  aviso: {archivo.relative_to(RAIZ)} debe estar dentro de una carpeta de sección; lo ignoro")
             continue
         seccion, nombre_archivo = partes
+        if seccion == SECCION_CUESTIONARIOS:
+            continue  # los cuestionarios se leen aparte (leer_cuestionarios)
         base = archivo.stem
         meta, cuerpo = partir_articulo(archivo.read_text(encoding="utf-8", errors="replace"))
 
@@ -216,6 +219,101 @@ def leer_articulos(fechas):
         })
     articulos.sort(key=lambda a: (a["fecha"], a["id"]), reverse=True)
     return articulos
+
+
+# -------------------------------------------------------------- cuestionarios
+def limpiar_opcion(texto):
+    """Devuelve (texto, es_correcta). La correcta termina en ' *', '(correcta)' o '✓'."""
+    t = texto.strip()
+    correcta = False
+    m = re.search(r"\s*(\(correcta\)|\(correct\)|✓|✔|(?<=\s)\*|^\*)\s*$", t, re.I)
+    if m and t[:m.start()].strip():
+        correcta = True
+        t = t[:m.start()].strip()
+    return t, correcta
+
+
+def leer_preguntas(cuerpo, nombre):
+    """Convierte el texto de un cuestionario en (introducción, lista de preguntas)."""
+    intro, preguntas, actual = [], [], None
+
+    def cerrar():
+        if actual is None:
+            return
+        n = len(preguntas) + 1
+        ops = actual["ops"]
+        marcadas = [i for i, (_, ok) in enumerate(ops) if ok]
+        if len(ops) < 2:
+            print(f"  aviso: {nombre}: la pregunta '{actual['p'][:40]}' necesita al menos 2 opciones; la ignoro")
+        elif not marcadas:
+            print(f"  aviso: {nombre}: la pregunta '{actual['p'][:40]}' no tiene respuesta correcta (marca una con * al final); la ignoro")
+        else:
+            if len(marcadas) > 1:
+                print(f"  aviso: {nombre}: la pregunta '{actual['p'][:40]}' tiene varias respuestas marcadas; uso la primera")
+            preguntas.append({
+                "p": actual["p"],
+                "ops": [t for t, _ in ops],
+                "c": marcadas[0],
+                "exp": " ".join(actual["exp"]).strip(),
+            })
+
+    for linea in cuerpo.split("\n"):
+        m = re.match(r"^\s*#{1,3}\s+(.+?)\s*$", linea)
+        if m:
+            cerrar()
+            actual = {"p": m.group(1).strip(), "ops": [], "exp": []}
+            continue
+        if actual is None:
+            intro.append(linea)
+            continue
+        m = re.match(r"^\s*(?:[-+]|[A-Za-z][.)])\s+(.+?)\s*$", linea)
+        if m:
+            actual["ops"].append(limpiar_opcion(m.group(1)))
+            continue
+        m = re.match(r"^\s*(?:>\s*|(?:explicaci[oó]n|explicacion)\s*:\s*)(.+?)\s*$", linea, re.I)
+        if m:
+            actual["exp"].append(m.group(1))
+    cerrar()
+    return "\n".join(intro).strip(), preguntas
+
+
+def leer_cuestionarios(fechas):
+    cuestionarios = []
+    carpeta = CARPETA_ARTICULOS / SECCION_CUESTIONARIOS
+    if not carpeta.exists():
+        return cuestionarios
+    for archivo in sorted(carpeta.glob("*.md")):
+        base = archivo.stem
+        rel_git = archivo.relative_to(RAIZ).as_posix()
+        meta, cuerpo = partir_articulo(archivo.read_text(encoding="utf-8", errors="replace"))
+        intro, preguntas = leer_preguntas(cuerpo, rel_git)
+        if not preguntas:
+            print(f"  aviso: {rel_git} no tiene preguntas válidas; lo ignoro")
+            continue
+        titulo = meta.get("titulo", "").strip() or bonito(base) or "Cuestionario"
+        fecha = (fecha_valida(meta.get("fecha")) or fecha_en_nombre(base)
+                 or (fechas.get(rel_git) or "")[:10] or date.today().isoformat())
+        imagen = meta.get("imagen", "").strip()
+        imagen_mini = None
+        if imagen and not re.match(r"^[a-z][a-z0-9+.-]*:", imagen, re.I):
+            imagen = imagen.lstrip("/").removeprefix("./")
+            if (RAIZ / imagen).is_file() and Path(imagen).suffix.lower() in EXT_FOTOS:
+                imagen_mini = hacer_miniatura(imagen)
+            elif not (RAIZ / imagen).is_file():
+                print(f"  aviso: {rel_git} usa la imagen '{imagen}' pero no existe")
+        cuestionarios.append({
+            "id": f"{SECCION_CUESTIONARIOS}/{base}",
+            "titulo": titulo,
+            "autor": meta.get("autor", "").strip(),
+            "fecha": fecha,
+            "resumen": meta.get("resumen", "").strip() or intro[:200],
+            "imagen": imagen,
+            "imagenMini": imagen_mini,
+            "intro": intro,
+            "preguntas": preguntas,
+        })
+    cuestionarios.sort(key=lambda q: (q["fecha"], q["id"]), reverse=True)
+    return cuestionarios
 
 
 # ---------------------------------------------------------------------- fotos
@@ -260,18 +358,19 @@ def main():
     fechas = fechas_de_git()
     CARPETA_MINIS.mkdir(exist_ok=True)
     articulos = leer_articulos(fechas)
+    cuestionarios = leer_cuestionarios(fechas)
     fotos = leer_fotos(fechas)
     limpiar_miniaturas_huerfanas()
     CARPETA_MINIS.mkdir(exist_ok=True)
 
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
-    contenido = json.dumps({"articulos": articulos, "fotos": fotos}, ensure_ascii=True, separators=(",", ":"))
+    contenido = json.dumps({"articulos": articulos, "cuestionarios": cuestionarios, "fotos": fotos}, ensure_ascii=True, separators=(",", ":"))
     SALIDA.write_text(
         "// Archivo generado automáticamente por scripts/indexar.py. No lo edites a mano.\n"
         f"window.REVISTA_DATOS = {contenido};\n",
         encoding="utf-8",
     )
-    print(f"Listo: {len(articulos)} artículo(s) y {len(fotos)} foto(s).")
+    print(f"Listo: {len(articulos)} artículo(s), {len(cuestionarios)} cuestionario(s) y {len(fotos)} foto(s).")
 
 
 if __name__ == "__main__":

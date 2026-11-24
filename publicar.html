@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Panel del equipo · Revista Gonzalina</title>
         <meta name="author" content="Revista Gonzalina" />
-        <meta content="Panel para publicar artículos." name="description" />
+        <meta content="Panel para publicar artículos y cuestionarios." name="description" />
         <meta name="robots" content="noindex" />
         <link rel="stylesheet" href="css/style.css" />
         <link rel="stylesheet" href="css/normalize.css" />
@@ -41,7 +41,7 @@
                 <section>
                     <h1>Panel del equipo</h1>
                     <p>
-                        Desde aquí publicas un artículo <strong>sin escribir código</strong>. Esta página es solo para
+                        Desde aquí publicas un artículo o un cuestionario <strong>sin escribir código</strong>. Esta página es solo para
                         el equipo de la revista.
                     </p>
                     <ol class="pasos">
@@ -111,6 +111,53 @@
                 <section>
                     <h2>Vista previa</h2>
                     <div id="p-previa" class="articulo"></div>
+                </section>
+                <section id="cuestionario">
+                    <h2>Nuevo cuestionario</h2>
+                    <p>
+                        Crea un cuestionario de opción múltiple. Quien lo resuelva verá su resultado al final, y no se
+                        guarda nada. Usa «Probar cuestionario» para resolverlo antes de publicarlo.
+                    </p>
+                    <form id="qz-form" onsubmit="return false">
+                        <label class="campo">
+                            <span>Título</span>
+                            <input type="text" id="qz-titulo" maxlength="140" />
+                        </label>
+                        <label class="campo">
+                            <span>Autor o autora</span>
+                            <input type="text" id="qz-autor" maxlength="80" />
+                        </label>
+                        <label class="campo">
+                            <span>Fecha</span>
+                            <input type="date" id="qz-fecha" />
+                        </label>
+                        <label class="campo">
+                            <span>Resumen (opcional)</span>
+                            <input type="text" id="qz-resumen" maxlength="240" />
+                            <small>Aparece en la lista de cuestionarios. Si lo dejas vacío se usa la introducción.</small>
+                        </label>
+                        <label class="campo">
+                            <span>Imagen (opcional)</span>
+                            <input type="text" id="qz-imagen" placeholder="img/articulos/mi-foto.jpg" />
+                            <small>Ruta de una imagen que ya subiste (o un enlace completo https://…).</small>
+                        </label>
+                        <label class="campo">
+                            <span>Introducción (opcional)</span>
+                            <textarea id="qz-intro" style="min-height: 90px"></textarea>
+                            <small>Un texto corto que se muestra antes de la primera pregunta.</small>
+                        </label>
+                        <div id="qz-preguntas"></div>
+                        <div class="acciones">
+                            <button type="button" id="qz-agregar">+ Agregar pregunta</button>
+                        </div>
+                        <div class="acciones">
+                            <button type="button" id="qz-probar">Probar cuestionario</button>
+                            <button type="button" id="qz-publicar" class="principal">Publicar en GitHub</button>
+                            <button type="button" id="qz-copiar">Copiar texto</button>
+                        </div>
+                        <p class="aviso" id="qz-aviso" hidden role="status"></p>
+                    </form>
+                    <div id="qz-previa" hidden></div>
                 </section>
                 <section>
                     <h2>Subir fotos e imágenes</h2>

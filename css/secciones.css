@@ -26,8 +26,9 @@
 
 /* ---------- menú: página actual ---------- */
 nav a.activo {
-    background-color: var(--nav-links-hover);
-    color: var(--nav-text-hover);
+    background-color: var(--nav-activo);
+    color: var(--nav-activo-text);
+    font-weight: bold;
 }
 
 /* ---------- cabecera de sección ---------- */
@@ -278,7 +279,7 @@ figure.foto figcaption {
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background: rgba(20, 5, 12, 0.88);
+    background: rgba(7, 20, 42, 0.9);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -434,6 +435,288 @@ figure.foto figcaption {
 @media (prefers-reduced-motion: reduce) {
     section.entrada,
     figure.foto {
+        transition: none;
+    }
+}
+
+/* ---------- adornos pixelados del panel lateral ---------- */
+.adorno {
+    display: block;
+    margin: 0 auto;
+    image-rendering: pixelated;
+    pointer-events: none;
+}
+
+.adorno-candelabro {
+    width: 53px;
+}
+
+.adorno-vela {
+    width: 54px;
+}
+
+/* en pantallas altas, los adornos se ven al doble de tamaño */
+@media screen and (min-height: 940px) {
+    .adorno-candelabro {
+        width: 106px;
+    }
+
+    .adorno-vela {
+        width: 81px;
+    }
+}
+
+/* ---------- panel lateral en pantallas bajas (laptops) ---------- */
+@media screen and (min-width: 801px) {
+    /* si aun así no cabe, el panel se desplaza en vez de cortarse */
+    #sidebar {
+        justify-content: safe center;
+        overflow-y: auto;
+    }
+}
+
+@media screen and (min-width: 801px) and (max-height: 860px) {
+    .adorno-vela {
+        display: none;
+    }
+
+    .adorno-candelabro {
+        width: 40px;
+    }
+
+    #sidebar .icon {
+        width: 62%;
+    }
+}
+
+@media screen and (min-width: 801px) and (max-height: 740px) {
+    .adorno-candelabro {
+        display: none;
+    }
+
+    #sidebar .icon {
+        width: 46%;
+    }
+
+    #sidebar .description {
+        font-size: 0.92em;
+        padding: 6px 0;
+    }
+}
+
+/* ==========================================================================
+   CUESTIONARIOS
+   ========================================================================== */
+:root {
+    --ok-fondo: #e0f5e4;
+    --ok-borde: #2e7d32;
+    --mal-fondo: #fde6e6;
+    --mal-borde: #c62828;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ok-fondo: #12361d;
+        --ok-borde: #66bb6a;
+        --mal-fondo: #40161a;
+        --mal-borde: #ef7b7b;
+    }
+}
+
+.quiz-progreso {
+    font-weight: bold;
+    margin: 6px 0;
+    color: var(--header-color);
+}
+
+.quiz-barra {
+    height: 10px;
+    background: var(--blockquote);
+    border: 1px solid var(--borders);
+    margin: 4px 0 14px;
+}
+
+.quiz-barra span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease-in-out;
+}
+
+.quiz-pregunta {
+    border: none;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.quiz-pregunta legend {
+    font-size: 1.2em;
+    font-weight: bold;
+    line-height: 1.35;
+    padding: 0 0 10px;
+    color: var(--header-color);
+}
+
+.quiz-op {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 8px 0;
+    padding: 10px 12px;
+    cursor: pointer;
+    background: var(--body-bg);
+    border: 2px solid var(--borders);
+    transition: background 0.15s ease-in;
+}
+
+.quiz-op:hover {
+    background: var(--blockquote);
+}
+
+.quiz-op input {
+    margin-top: 4px;
+    flex: none;
+}
+
+.quiz-op:has(input:checked) {
+    border-color: var(--links);
+    background: var(--blockquote);
+}
+
+.quiz-op:has(input:focus-visible) {
+    outline: 3px solid var(--focus-color, var(--links));
+    outline-offset: 2px;
+}
+
+.quiz-letra {
+    flex: none;
+    font-weight: bold;
+    min-width: 1.4em;
+    color: var(--header-color);
+}
+
+.quiz-texto {
+    flex: 1 1 auto;
+}
+
+.quiz-marca {
+    flex: none;
+    font-weight: bold;
+    font-size: 0.85em;
+}
+
+.quiz-op.correcta {
+    background: var(--ok-fondo);
+    border-color: var(--ok-borde);
+    cursor: default;
+}
+
+.quiz-op.incorrecta {
+    background: var(--mal-fondo);
+    border-color: var(--mal-borde);
+    cursor: default;
+}
+
+.quiz-feedback {
+    margin: 12px 0 0;
+    padding: 0;
+}
+
+.quiz-feedback.bien,
+.quiz-feedback.mal {
+    padding: 10px 12px;
+    border-left: 6px solid;
+}
+
+.quiz-feedback.bien {
+    background: var(--ok-fondo);
+    border-color: var(--ok-borde);
+}
+
+.quiz-feedback.mal {
+    background: var(--mal-fondo);
+    border-color: var(--mal-borde);
+}
+
+.quiz .acciones button {
+    min-height: 44px;
+}
+
+.quiz-puntaje {
+    text-align: center;
+    font-size: 2em;
+    margin: 6px 0;
+}
+
+.quiz-resultado > p {
+    text-align: center;
+}
+
+.quiz-repaso {
+    margin: 10px 0 0 22px;
+}
+
+.quiz-repaso li {
+    margin: 10px 0;
+    padding-left: 8px;
+    border-left: 4px solid var(--ok-borde);
+}
+
+.quiz-repaso li.mal {
+    border-left-color: var(--mal-borde);
+}
+
+.quiz-privado {
+    margin: 10px 0 0;
+}
+
+/* constructor de cuestionarios (panel del equipo) */
+.qz-preg {
+    margin: 14px 0;
+    padding: 10px 14px 14px;
+    border: 1px solid var(--borders);
+    background: var(--blockquote);
+}
+
+.qz-preg legend {
+    font-weight: bold;
+    padding: 0 6px;
+    color: var(--header-color);
+}
+
+.qz-op {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 6px 0;
+}
+
+.qz-op input[type="radio"] {
+    flex: none;
+    width: 20px;
+    height: 20px;
+}
+
+.qz-op .qz-opt {
+    flex: 1 1 auto;
+    width: auto;
+}
+
+.qz-quitar {
+    cursor: pointer;
+    padding: 6px 12px;
+}
+
+#qz-previa {
+    margin-top: 16px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .quiz-barra span,
+    .quiz-op {
         transition: none;
     }
 }

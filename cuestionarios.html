@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Cuestionarios · Revista Gonzalina</title>
+        <meta name="author" content="Revista Gonzalina" />
+        <meta content="Cuestionarios para resolver en línea, sin guardar tus respuestas." name="description" />
+        <link rel="stylesheet" href="css/style.css" />
+        <link rel="stylesheet" href="css/normalize.css" />
+        <link rel="stylesheet" href="css/secciones.css" />
+        <script src="data/contenido.js"></script>
+        <script src="js/sitio.js" defer></script>
+    </head>
+    <body data-pagina="cuestionarios">
+        <div id="skip"><a href="#content">Saltar al contenido</a></div>
+        <a href="#content" id="backscroll" class="backscroll" title="Ir arriba">Arriba</a>
+
+        <div class="container">
+            <div id="image-sidebar"></div>
+            <div id="sidebar">
+                <img src="img/decoracion/candelabro.gif" class="adorno adorno-candelabro hide-mobile" alt="" />
+                <div class="icon"><img src="https://github.com/RevistaGonzalina/RevistaGonzalina/blob/main/img/image.jpg?raw=true"/></div>
+                <div class="description">
+                    Bienvenidos a la Página Principal de nuestra revista! explora el sitio con completa libertad 
+                </div>
+                <!-- El menú se arma solo desde la lista "secciones" de js/sitio.js -->
+                <nav id="menu"></nav>
+                <img src="img/decoracion/vela.gif" class="adorno adorno-vela hide-mobile" alt="" />
+                <hr />
+                <div class="togglegif">
+                    <label for="fontFamily">Font:</label>
+                    <select name="fontFamily" id="fontFamily" style="width: 150px">
+                        <option value="Nunito">Nunito</option>
+                        <option value="rainyhearts">Rainy Hearts</option>
+                    </select>
+                </div>
+            </div>
+            <main id="content">
+                <section class="sec-cabecera" id="q-cabecera">
+                    <h1 id="sec-titulo">Cuestionarios</h1>
+                    <p id="sec-desc"></p>
+                </section>
+                <div id="q-lista"></div>
+                <section id="q-vista" hidden>
+                    <p class="volver"><a href="cuestionarios.html" id="q-volver">← Todos los cuestionarios</a></p>
+                    <h1 id="q-titulo"></h1>
+                    <p class="entrada-meta centrado" id="q-meta"></p>
+                    <div class="articulo-cuerpo" id="q-intro"></div>
+                    <div id="q-juego"></div>
+                </section>
+                <footer>
+                    Revista Gonzalina · laces template by <a href="https://vgen.co/asuraid">asuraid</a>. ·
+                    <a href="publicar.html">Panel del equipo</a>
+                </footer>
+            </main>
+        </div>
+    </body>
+</html>
