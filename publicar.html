@@ -146,6 +146,25 @@
                             <textarea id="qz-intro" style="min-height: 90px"></textarea>
                             <small>Un texto corto que se muestra antes de la primera pregunta.</small>
                         </label>
+                        <label class="campo">
+                            <span>Tipo de cuestionario</span>
+                            <select id="qz-tipo">
+                                <option value="quiz">Con respuestas correctas (cuenta cuántas acertaste)</option>
+                                <option value="test">Test de resultados (según tus respuestas sale un resultado distinto)</option>
+                            </select>
+                            <small>Ejemplo de test: orientación vocacional o «¿qué tipo de estudiante eres?».</small>
+                        </label>
+                        <div id="qz-resultados-wrap" hidden>
+                            <h3>Resultados posibles</h3>
+                            <p>
+                                Escribe al menos 2. Cada opción de las preguntas sumará puntos a uno de estos resultados, y
+                                al final se muestra el que más puntos tenga.
+                            </p>
+                            <div id="qz-resultados"></div>
+                            <div class="acciones">
+                                <button type="button" id="qz-agregar-res">+ Agregar resultado</button>
+                            </div>
+                        </div>
                         <div id="qz-preguntas"></div>
                         <div class="acciones">
                             <button type="button" id="qz-agregar">+ Agregar pregunta</button>

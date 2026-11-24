@@ -515,6 +515,8 @@
 
     function crearQuiz(cont, quiz, alSalir) {
         var preguntas = quiz.preguntas || [];
+        var esTest = quiz.tipo === "test";
+        var resultados = quiz.resultados || [];
         var total = preguntas.length;
         var indice = 0, elegidas = [];
 
@@ -540,14 +542,18 @@
                 '<div class="quiz-barra" aria-hidden="true"><span style="width:' + Math.round(indice / total * 100) + '%"></span></div>' +
                 '<fieldset class="quiz-pregunta"><legend tabindex="-1">' + html(p.p) + "</legend>" + ops + "</fieldset>" +
                 '<p class="quiz-feedback" role="status" aria-live="polite"></p>' +
-                '<div class="acciones"><button type="button" class="principal quiz-comprobar" disabled>Comprobar</button>' +
-                '<button type="button" class="principal quiz-siguiente" hidden>' +
+                '<div class="acciones"><button type="button" class="principal quiz-comprobar"' + (esTest ? " hidden" : " disabled") + ">Comprobar</button>" +
+                '<button type="button" class="principal quiz-siguiente"' + (esTest ? " disabled" : " hidden") + ">" +
                 (indice === total - 1 ? "Ver mi resultado" : "Siguiente pregunta →") + "</button></div></div>";
 
             var boton = $(".quiz-comprobar", cont), siguiente = $(".quiz-siguiente", cont);
             var radios = cont.querySelectorAll('input[name="quiz-op"]');
             for (var i = 0; i < radios.length; i++) {
-                radios[i].addEventListener("change", function () { boton.disabled = false; });
+                radios[i].addEventListener("change", function () {
+                    boton.disabled = false;
+                    if (esTest) { elegidas[indice] = parseInt(this.value, 10); siguiente.disabled = false; }
+                });
+                if (esTest && elegidas[indice] === i) { radios[i].checked = true; siguiente.disabled = false; }
             }
             boton.addEventListener("click", function () {
                 var marcada = cont.querySelector('input[name="quiz-op"]:checked');
@@ -570,9 +576,43 @@
             });
             siguiente.addEventListener("click", function () {
                 indice++;
-                if (indice < total) pintarPregunta(); else pintarResultado();
+                if (indice < total) pintarPregunta(); else if (esTest) pintarResultadoTest(); else pintarResultado();
             });
             $("legend", cont).focus();
+        }
+
+        function pintarResultadoTest() {
+            var puntos = resultados.map(function () { return 0; });
+            preguntas.forEach(function (p, i) {
+                (p.pts[elegidas[i]] || []).forEach(function (r) { puntos[r]++; });
+            });
+            var max = Math.max.apply(null, puntos);
+            var ganadores = [];
+            puntos.forEach(function (v, i) { if (v === max && max > 0) ganadores.push(i); });
+            var principal = resultados[ganadores[0]] || { n: "Sin resultado", d: "" };
+            var otros = ganadores.slice(1).map(function (i) { return "<strong>" + html(resultados[i].n) + "</strong>"; });
+            var suma = puntos.reduce(function (a, b) { return a + b; }, 0) || 1;
+            var barras = resultados.map(function (r, i) {
+                var pct = Math.round(puntos[i] / suma * 100);
+                return '<li><span class="quiz-afin-nombre">' + html(r.n) + '</span><span class="quiz-afin-pct">' + pct + '%</span>' +
+                    '<div class="quiz-barra" aria-hidden="true"><span style="width:' + pct + '%"></span></div></li>';
+            }).join("");
+            cont.innerHTML =
+                '<div class="quiz quiz-resultado quiz-test">' +
+                '<p class="quiz-progreso">Tu resultado</p>' +
+                '<h2 class="quiz-puntaje" tabindex="-1">' + html(principal.n) + "</h2>" +
+                (principal.d ? "<p>" + html(principal.d) + "</p>" : "") +
+                (otros.length ? "<p>También encajas con: " + otros.join(", ") + ".</p>" : "") +
+                '<details open><summary>Cómo salió tu resultado</summary><ul class="quiz-afinidad">' + barras + "</ul></details>" +
+                '<p class="quiz-privado"><small>Este resultado es solo una orientación y no se guardó en ningún lado.</small></p>' +
+                '<div class="acciones"><button type="button" class="principal quiz-reintentar">Hacer el test de nuevo</button>' +
+                (alSalir ? '<button type="button" class="quiz-otros">Ver otros cuestionarios</button>' : "") + "</div></div>";
+            $(".quiz-reintentar", cont).addEventListener("click", function () {
+                indice = 0; elegidas = []; pintarPregunta();
+            });
+            var otro = $(".quiz-otros", cont);
+            if (otro) otro.addEventListener("click", alSalir);
+            $(".quiz-puntaje", cont).focus();
         }
 
         function pintarResultado() {
@@ -615,6 +655,7 @@
         if (q.fecha) partes.push(esc(formatoFecha(q.fecha)));
         if (q.autor) partes.push("Por " + esc(q.autor));
         partes.push(textoPreguntas(q.preguntas.length));
+        partes.push(q.tipo === "test" ? "Test de resultados" : "Con respuestas correctas");
         sec.innerHTML =
             (foto ? '<a class="entrada-img" href="' + enlaceCuestionario(q) + '" tabindex="-1" aria-hidden="true">' +
                 '<img src="' + urlImagen(foto) + '" alt="" loading="lazy"></a>' : "") +
@@ -657,6 +698,7 @@
             if (q.fecha) meta.push(esc(formatoFecha(q.fecha)));
             if (q.autor) meta.push("Por " + esc(q.autor));
             meta.push(textoPreguntas(q.preguntas.length));
+            meta.push(q.tipo === "test" ? "Test de resultados" : "Con respuestas correctas");
             $("#q-titulo").textContent = q.titulo;
             $("#q-meta").innerHTML = meta.join(" · ");
             $("#q-intro").innerHTML = q.intro ? markdown(q.intro) : "";
@@ -721,7 +763,8 @@
             quizzes.innerHTML = nuevos.length
                 ? nuevos.map(function (q) {
                     return '<div class="ultimo"><h3><a href="' + enlaceCuestionario(q) + '">' + esc(q.titulo) + "</a></h3>" +
-                        '<p class="entrada-meta">' + (q.fecha ? esc(formatoFecha(q.fecha)) + " · " : "") + textoPreguntas(q.preguntas.length) + "</p>" +
+                        '<p class="entrada-meta">' + (q.fecha ? esc(formatoFecha(q.fecha)) + " · " : "") + textoPreguntas(q.preguntas.length) +
+                        (q.tipo === "test" ? " · Test" : "") + "</p>" +
                         (q.resumen ? "<p>" + esc(q.resumen) + "</p>" : "") + "</div>";
                 }).join("")
                 : "<p>Pronto publicaremos aquí los primeros cuestionarios.</p>";
@@ -890,7 +933,72 @@
             resumen: $("#qz-resumen"), imagen: $("#qz-imagen"), intro: $("#qz-intro")
         };
         var lista = $("#qz-preguntas"), aviso = $("#qz-aviso");
+        var tipo = $("#qz-tipo"), resWrap = $("#qz-resultados-wrap"), resLista = $("#qz-resultados");
         var contador = 0;
+
+        function esTest() { return tipo.value === "test"; }
+
+        // nombres de resultado: sin ":" ni "," ni flechas, que el robot usa para separar
+        function limpiarNombre(v) {
+            return String(v || "").replace(/->|=>|→/g, " ").replace(/[:,]/g, " ").replace(/\s+/g, " ").trim();
+        }
+
+        function nombresResultados() {
+            var filas = resLista.querySelectorAll(".qz-res");
+            return Array.prototype.map.call(filas, function (f) { return limpiarNombre($(".qz-rn", f).value); });
+        }
+
+        function refrescarSelects() {
+            var nombres = nombresResultados();
+            var selects = lista.querySelectorAll(".qz-rsel");
+            for (var i = 0; i < selects.length; i++) {
+                var previo = selects[i].value;
+                selects[i].innerHTML = '<option value="-1">¿A qué resultado suma?</option>' + nombres.map(function (n, k) {
+                    return '<option value="' + k + '">' + esc(n || "Resultado " + (k + 1)) + "</option>";
+                }).join("");
+                if (previo !== "" && +previo < nombres.length) selects[i].value = previo;
+            }
+        }
+
+        function agregarResultado() {
+            var f = document.createElement("div");
+            f.className = "qz-res";
+            f.innerHTML =
+                '<label class="campo"><span class="qz-res-num"></span><input type="text" class="qz-rn" maxlength="60" placeholder="Nombre del resultado (ej. Ciencias y tecnología)"></label>' +
+                '<label class="campo"><span>Descripción</span><textarea class="qz-rd" style="min-height: 70px" placeholder="Qué significa este resultado"></textarea></label>' +
+                '<button type="button" class="qz-quitar">Quitar este resultado</button>';
+            $(".qz-rn", f).addEventListener("input", refrescarSelects);
+            $(".qz-quitar", f).addEventListener("click", function () {
+                resLista.removeChild(f); numerarResultados(); refrescarSelects();
+            });
+            resLista.appendChild(f);
+            numerarResultados();
+            refrescarSelects();
+        }
+
+        function numerarResultados() {
+            var filas = resLista.querySelectorAll(".qz-res");
+            for (var i = 0; i < filas.length; i++) {
+                $(".qz-res-num", filas[i]).textContent = "Resultado " + (i + 1);
+                $(".qz-quitar", filas[i]).hidden = filas.length <= 2;
+            }
+        }
+
+        function aplicarTipo() {
+            var test = esTest();
+            resWrap.hidden = !test;
+            if (test && !resLista.children.length) { agregarResultado(); agregarResultado(); agregarResultado(); }
+            var bloques = lista.querySelectorAll(".qz-preg");
+            for (var i = 0; i < bloques.length; i++) {
+                var radios = bloques[i].querySelectorAll('input[type="radio"]'), sels = bloques[i].querySelectorAll(".qz-rsel");
+                for (var k = 0; k < radios.length; k++) { radios[k].hidden = test; sels[k].hidden = !test; }
+                $(".qz-ayuda-quiz", bloques[i]).hidden = test;
+                $(".qz-ayuda-test", bloques[i]).hidden = !test;
+                $(".qz-exp", bloques[i]).parentNode.hidden = test;
+            }
+            refrescarSelects();
+            mostrarAviso("");
+        }
         campos.fecha.value = hoyISO();
 
         function mostrarAviso(t) { aviso.textContent = t; aviso.hidden = !t; }
@@ -911,12 +1019,13 @@
             for (var i = 0; i < 4; i++) {
                 ops += '<div class="qz-op"><input type="radio" name="qz-c' + n + '" value="' + i + '" aria-label="Marcar la opción ' +
                     String.fromCharCode(65 + i) + ' como correcta"><input type="text" class="qz-opt" maxlength="160" placeholder="Opción ' +
-                    String.fromCharCode(65 + i) + (i < 2 ? "" : " (opcional)") + '"></div>';
+                    String.fromCharCode(65 + i) + (i < 2 ? "" : " (opcional)") + '"><select class="qz-rsel" hidden aria-label="Resultado al que suma la opción ' +
+                    String.fromCharCode(65 + i) + '"></select></div>';
             }
             b.innerHTML =
                 '<legend class="qz-num"></legend>' +
                 '<label class="campo"><span>Pregunta</span><input type="text" class="qz-p" maxlength="200"></label>' +
-                '<div class="campo"><span>Opciones <small>(marca con el círculo cuál es la correcta)</small></span>' + ops + "</div>" +
+                '<div class="campo"><span>Opciones <small class="qz-ayuda-quiz">(marca con el círculo cuál es la correcta)</small><small class="qz-ayuda-test" hidden>(elige a qué resultado suma cada opción)</small></span>' + ops + "</div>" +
                 '<label class="campo"><span>Explicación (opcional)</span><input type="text" class="qz-exp" maxlength="300">' +
                 "<small>Se muestra después de responder.</small></label>" +
                 '<button type="button" class="qz-quitar">Quitar esta pregunta</button>';
@@ -925,9 +1034,45 @@
             });
             lista.appendChild(b);
             numerar();
+            aplicarTipo();
+        }
+
+        function leerTest() {
+            var errores = [], resultados = [], preguntas = [];
+            var filas = resLista.querySelectorAll(".qz-res"), vistos = {};
+            for (var r = 0; r < filas.length; r++) {
+                var n = limpiarNombre($(".qz-rn", filas[r]).value);
+                if (!n) { errores.push("Resultado " + (r + 1) + ": escribe su nombre."); continue; }
+                if (vistos[normalizar(n)]) { errores.push("Hay dos resultados con el nombre «" + n + "»."); continue; }
+                vistos[normalizar(n)] = true;
+                resultados.push({ n: n, d: unaL($(".qz-rd", filas[r]).value), i: r });
+            }
+            if (resultados.length < 2 && !errores.length) errores.push("Escribe al menos 2 resultados posibles.");
+            var bloques = lista.querySelectorAll(".qz-preg");
+            for (var i = 0; i < bloques.length; i++) {
+                var b = bloques[i];
+                var p = unaL($(".qz-p", b).value);
+                var entradas = b.querySelectorAll(".qz-opt"), sels = b.querySelectorAll(".qz-rsel");
+                var ops = [], pts = [], sinResultado = false;
+                for (var k = 0; k < entradas.length; k++) {
+                    var t = unaL(entradas[k].value).replace(/->|=>|→/g, "-");
+                    if (!t) continue;
+                    var v = parseInt(sels[k].value, 10);
+                    if (!(v >= 0)) sinResultado = true;
+                    ops.push(t); pts.push(v);
+                }
+                if (!p && !ops.length) continue;
+                var nombre = "Pregunta " + (i + 1) + ": ";
+                if (!p) errores.push(nombre + "escribe la pregunta.");
+                else if (ops.length < 2) errores.push(nombre + "escribe al menos 2 opciones.");
+                else if (sinResultado) errores.push(nombre + "elige a qué resultado suma cada opción.");
+                else preguntas.push({ p: p, ops: ops, pts: pts });
+            }
+            return { errores: errores, preguntas: preguntas, resultados: resultados };
         }
 
         function leer() {
+            if (esTest()) return leerTest();
             var errores = [], preguntas = [];
             var bloques = lista.querySelectorAll(".qz-preg");
             for (var i = 0; i < bloques.length; i++) {
@@ -954,17 +1099,29 @@
 
         function unaL(v) { return String(v || "").replace(/\s*\n\s*/g, " ").trim(); }
 
+        var ultimosResultados = [];
+
         function objeto(preguntas) {
-            return {
+            var o = {
                 titulo: unaL(campos.titulo.value) || "Cuestionario", autor: unaL(campos.autor.value),
-                fecha: campos.fecha.value, intro: campos.intro.value.trim(), preguntas: preguntas
+                fecha: campos.fecha.value, intro: campos.intro.value.trim(), preguntas: preguntas, tipo: "quiz"
             };
+            if (esTest()) {
+                var idx = {};
+                o.tipo = "test";
+                o.resultados = ultimosResultados.map(function (r, k) { idx[r.i] = k; return { n: r.n, d: r.d }; });
+                o.preguntas = preguntas.map(function (q) {
+                    return { p: q.p, ops: q.ops, pts: q.pts.map(function (v) { return [idx[v]]; }), exp: "" };
+                });
+            }
+            return o;
         }
 
         function validar() {
             if (!unaL(campos.titulo.value)) { mostrarAviso("Escribe primero el título del cuestionario."); campos.titulo.focus(); return null; }
             var r = leer();
             if (r.errores.length) { mostrarAviso(r.errores.join(" ")); return null; }
+            ultimosResultados = r.resultados || [];
             if (!r.preguntas.length) { mostrarAviso("Agrega al menos una pregunta completa."); return null; }
             mostrarAviso("");
             return r.preguntas;
@@ -976,16 +1133,36 @@
             if (unaL(campos.fecha.value)) cab.push("fecha: " + unaL(campos.fecha.value));
             if (unaL(campos.resumen.value)) cab.push("resumen: " + unaL(campos.resumen.value));
             if (unaL(campos.imagen.value)) cab.push("imagen: " + unaL(campos.imagen.value));
+            if (esTest()) cab.splice(cab.length, 0, "tipo: test");
             var texto = cab.join("\n") + "\n\n";
             if (campos.intro.value.trim()) texto += campos.intro.value.trim() + "\n\n";
+            if (esTest()) {
+                texto += ultimosResultados.map(function (r) { return "@ " + r.n + ": " + (r.d || r.n); }).join("\n") + "\n\n";
+                texto += preguntas.map(function (q) {
+                    return "## " + q.p + "\n" + q.ops.map(function (o, i) {
+                        return "- " + o + " -> " + ultimosResultados.filter(function (r) { return r.i === q.pts[i]; })[0].n;
+                    }).join("\n");
+                }).join("\n\n") + "\n";
+                return finalizar(texto);
+            }
             texto += preguntas.map(function (q) {
                 return "## " + q.p + "\n" + q.ops.map(function (o, i) { return "- " + o + (i === q.c ? " *" : ""); }).join("\n") +
                     (q.exp ? "\n> " + q.exp : "");
             }).join("\n\n") + "\n";
+            return finalizar(texto);
+        }
+
+        function finalizar(texto) {
             var fecha = /^\d{4}-\d{2}-\d{2}$/.test(campos.fecha.value) ? campos.fecha.value : hoyISO();
             var nombre = fecha + "-" + hacerSlug(campos.titulo.value) + ".md";
             return { ruta: "articulos/cuestionarios/" + nombre, nombre: nombre, contenido: texto };
         }
+
+        tipo.addEventListener("change", aplicarTipo);
+        $("#qz-agregar-res").addEventListener("click", function () {
+            agregarResultado();
+            var ult = resLista.lastElementChild; if (ult) $(".qz-rn", ult).focus();
+        });
 
         $("#qz-agregar").addEventListener("click", function () {
             agregarPregunta();

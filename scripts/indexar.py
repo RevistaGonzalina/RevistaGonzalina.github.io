@@ -26,7 +26,7 @@ SALIDA = RAIZ / "data" / "contenido.js"
 SECCION_CUESTIONARIOS = "cuestionarios"  # carpeta articulos/cuestionarios/ = quizzes
 
 EXT_FOTOS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"}
-CLAVES = {"titulo", "autor", "fecha", "resumen", "imagen"}
+CLAVES = {"titulo", "autor", "fecha", "resumen", "imagen", "tipo"}
 ANCHO_MINIATURA = 640
 
 minis_usadas = set()
@@ -233,19 +233,44 @@ def limpiar_opcion(texto):
     return t, correcta
 
 
-def leer_preguntas(cuerpo, nombre):
-    """Convierte el texto de un cuestionario en (introducción, lista de preguntas)."""
-    intro, preguntas, actual = [], [], None
+def leer_preguntas(cuerpo, nombre, es_test=False):
+    """Convierte el texto de un cuestionario en (introducción, preguntas, resultados).
+
+    Cuestionario normal: la opción correcta termina en ' *'.
+    Test de resultados: se definen resultados con '@ Nombre: descripción' y cada opción
+    indica a qué resultado suma con '- Opción -> Nombre'.
+    """
+    intro, preguntas, resultados, actual, ultimo_res = [], [], [], None, None
+
+    def clave(t):
+        return sin_acentos(t).strip().lower()
 
     def cerrar():
         if actual is None:
             return
-        n = len(preguntas) + 1
         ops = actual["ops"]
-        marcadas = [i for i, (_, ok) in enumerate(ops) if ok]
         if len(ops) < 2:
             print(f"  aviso: {nombre}: la pregunta '{actual['p'][:40]}' necesita al menos 2 opciones; la ignoro")
-        elif not marcadas:
+            return
+        if es_test:
+            indices = {clave(r["n"]): i for i, r in enumerate(resultados)}
+            pts = []
+            for texto, nombres in ops:
+                lista = []
+                for n in nombres:
+                    if clave(n) in indices:
+                        lista.append(indices[clave(n)])
+                    else:
+                        print(f"  aviso: {nombre}: la opción '{texto[:30]}' apunta a '{n}', que no es un resultado definido con '@'")
+                pts.append(lista)
+            if not any(pts):
+                print(f"  aviso: {nombre}: la pregunta '{actual['p'][:40]}' no suma a ningún resultado; la ignoro")
+                return
+            preguntas.append({"p": actual["p"], "ops": [t for t, _ in ops], "pts": pts,
+                              "exp": " ".join(actual["exp"]).strip()})
+            return
+        marcadas = [i for i, (_, ok) in enumerate(ops) if ok]
+        if not marcadas:
             print(f"  aviso: {nombre}: la pregunta '{actual['p'][:40]}' no tiene respuesta correcta (marca una con * al final); la ignoro")
         else:
             if len(marcadas) > 1:
@@ -262,19 +287,40 @@ def leer_preguntas(cuerpo, nombre):
         if m:
             cerrar()
             actual = {"p": m.group(1).strip(), "ops": [], "exp": []}
+            ultimo_res = None
             continue
+        if es_test:
+            m = re.match(r"^\s*@\s*([^:]+?)\s*:\s*(.*?)\s*$", linea)
+            if m and actual is None:
+                resultados.append({"n": m.group(1), "d": m.group(2)})
+                ultimo_res = resultados[-1]
+                continue
+            if ultimo_res is not None and actual is None:
+                if linea.strip():
+                    ultimo_res["d"] = (ultimo_res["d"] + " " + linea.strip()).strip()
+                continue
         if actual is None:
             intro.append(linea)
             continue
         m = re.match(r"^\s*(?:[-+]|[A-Za-z][.)])\s+(.+?)\s*$", linea)
         if m:
-            actual["ops"].append(limpiar_opcion(m.group(1)))
+            if es_test:
+                texto = m.group(1)
+                partes = re.split(r"\s*(?:->|=>|→)\s*", texto)
+                nombres = [x.strip() for x in partes[-1].split(",") if x.strip()] if len(partes) > 1 else []
+                actual["ops"].append((partes[0].strip() if len(partes) > 1 else texto.strip(), nombres))
+            else:
+                actual["ops"].append(limpiar_opcion(m.group(1)))
             continue
         m = re.match(r"^\s*(?:>\s*|(?:explicaci[oó]n|explicacion)\s*:\s*)(.+?)\s*$", linea, re.I)
         if m:
             actual["exp"].append(m.group(1))
     cerrar()
-    return "\n".join(intro).strip(), preguntas
+    return "\n".join(intro).strip(), preguntas, resultados
+
+
+def clave_tipo(t):
+    return sin_acentos(t or "").strip().lower()
 
 
 def leer_cuestionarios(fechas):
@@ -286,7 +332,11 @@ def leer_cuestionarios(fechas):
         base = archivo.stem
         rel_git = archivo.relative_to(RAIZ).as_posix()
         meta, cuerpo = partir_articulo(archivo.read_text(encoding="utf-8", errors="replace"))
-        intro, preguntas = leer_preguntas(cuerpo, rel_git)
+        es_test = clave_tipo(meta.get("tipo")) == "test"
+        intro, preguntas, resultados = leer_preguntas(cuerpo, rel_git, es_test)
+        if es_test and len(resultados) < 2:
+            print(f"  aviso: {rel_git} es un test pero define menos de 2 resultados (escribe líneas '@ Nombre: descripción'); lo ignoro")
+            continue
         if not preguntas:
             print(f"  aviso: {rel_git} no tiene preguntas válidas; lo ignoro")
             continue
@@ -309,7 +359,9 @@ def leer_cuestionarios(fechas):
             "resumen": meta.get("resumen", "").strip() or intro[:200],
             "imagen": imagen,
             "imagenMini": imagen_mini,
+            "tipo": "test" if es_test else "quiz",
             "intro": intro,
+            "resultados": resultados,
             "preguntas": preguntas,
         })
     cuestionarios.sort(key=lambda q: (q["fecha"], q["id"]), reverse=True)
