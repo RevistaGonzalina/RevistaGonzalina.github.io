@@ -1,4 +1,4 @@
-## Hola tú, gracias por revisar el repositorio 👋
+## Holaa tú, gracias por revisar el repositorio 👋
 
 <!--
 **RevistaGonzalina/RevistaGonzalina** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
